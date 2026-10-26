@@ -1,0 +1,5 @@
+# Kaggle 上程式會自動安裝缺少的套件；本機執行時可用：pip install -r kaggle/requirements.txt
+ultralytics>=8.4.0  # YOLO26；較舊版本會自動改用 YOLO11
+pydicom>=2.4        # 醫學 DICOM
+pandas              # WM-811K 晶圓圖
+pytest              # 單元測試
