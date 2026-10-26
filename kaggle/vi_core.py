@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import ctypes
 import gc
 import hashlib
 import json
@@ -735,6 +736,10 @@ def train_model(args, data_ref: Path, task: str, aug: dict) -> Path:
 
 def free_memory() -> None:
     gc.collect()
+    try:  # glibc 不會主動把釋放的記憶體還給系統，訓練後 RSS 會一直停在高點
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except (OSError, AttributeError):  # 非 glibc（macOS / Windows）
+        pass
     import torch
 
     if torch.cuda.is_available():
