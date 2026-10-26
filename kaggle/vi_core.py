@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gc
 import hashlib
 import json
 import math
@@ -727,7 +728,17 @@ def train_model(args, data_ref: Path, task: str, aug: dict) -> Path:
             train_args[k] = getattr(args, k)
     model.train(**train_args)
     weights = Path(model.trainer.save_dir) / "weights"
+    del model  # 釋放 trainer（資料載入器、優化器、EMA），否則評估時記憶體會疊加到 OOM
+    free_memory()
     return weights / "best.pt" if (weights / "best.pt").exists() else weights / "last.pt"
+
+
+def free_memory() -> None:
+    gc.collect()
+    import torch
+
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
 
 # ───────────────────────── 推論 ─────────────────────────
@@ -1347,7 +1358,9 @@ def parse_args(parser: argparse.ArgumentParser, argv=None) -> argparse.Namespace
     for kv in args.set:
         k, _, v = kv.partition("=")
         args.extra[k] = yaml.safe_load(v)
-    args.pred_batch = 16
+    import torch
+
+    args.pred_batch = 16 if torch.cuda.is_available() else 4  # CPU 推論大批次很吃記憶體
     return args
 
 
