@@ -103,6 +103,16 @@ def test_metrics_and_tuning():
     assert img["overkill_rate"] == 1.0
     capped = core.tune_thresholds(preds, gts, ["d"], 0.5, 0.3, "object", 0.5)
     assert capped["d"]["threshold"] == 0.5
+    floored = core.tune_thresholds(preds, gts, ["d"], 1.0, 0.3, "object", 0.5, min_t=0.6)
+    assert floored["d"]["threshold"] == 0.6 and floored["d"]["reachable"] is False
+    assert floored["d"]["val_recall"] == 0.5
+
+
+def test_clamp_threshold():
+    assert core.clamp_threshold(0.01, False, 0.1, 0.5) == (0.1, False)
+    assert core.clamp_threshold(0.05, True, 0.1, 0.5) == (0.1, False)  # 達標需要的門檻低於下限 → 未達標
+    assert core.clamp_threshold(0.3, True, 0.1, 0.5) == (0.3, True)
+    assert core.clamp_threshold(0.8, True, 0.1, 0.5) == (0.5, True)
 
 
 def test_roc_auc_with_ties():

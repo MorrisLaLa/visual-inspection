@@ -881,16 +881,24 @@ def threshold_for_recall(scores, target: float) -> tuple[float, bool]:
     return math.floor(t * 1e4) / 1e4, True  # 無條件捨去，避免四捨五入後反而漏掉邊界樣本
 
 
-def tune_thresholds(preds, gts, names, target: float, iou: float, level: str, max_t: float) -> dict:
+def clamp_threshold(t: float, ok: bool | None, min_t: float, max_t: float) -> tuple[float, bool | None]:
+    """把門檻限制在 [min_t, max_t]。達標需要低於 min_t 的門檻時，停在 min_t 並視為未達標，
+    不為了召回率把門檻降到誤報暴增的程度；是否上線交給人判斷。"""
+    if t < min_t:
+        return min_t, False
+    return min(t, max_t), ok
+
+
+def tune_thresholds(preds, gts, names, target: float, iou: float, level: str, max_t: float,
+                    min_t: float = 0.0) -> dict:
     """逐類調門檻。上限 max_t：val 樣本少時，「剛好達標的最大門檻」很容易過度貼合 val，
-    到 test 反而漏掉；設上限讓調門檻只會讓系統更敏感、不會比預設更不敏感。"""
+    到 test 反而漏掉；設上限讓調門檻只會讓系統更敏感、不會比預設更不敏感。下限 min_t 見 clamp_threshold。"""
     out = {}
     for c, s in enumerate(collect_scores(preds, gts, len(names), iou, level)):
         if not s:
-            out[names[c]] = {"threshold": min(0.25, max_t), "reachable": None, "val_recall": None, "n_val": 0}
+            out[names[c]] = {"threshold": max(min(0.25, max_t), min_t), "reachable": None, "val_recall": None, "n_val": 0}
             continue
-        t, ok = threshold_for_recall(s, target)
-        t = min(t, max_t)
+        t, ok = clamp_threshold(*threshold_for_recall(s, target), min_t, max_t)
         out[names[c]] = {"threshold": t, "reachable": ok, "val_recall": float(np.mean(np.array(s) >= t)), "n_val": len(s)}
     return out
 
@@ -1016,7 +1024,7 @@ def _evaluate_det(model, meta, args, test_split) -> dict:
     val_gts = [gt_array(e) for e in meta["val"]]
     val_preds = predict_boxes(model, meta["val"], args, tile, m2d)
     thresholds = tune_thresholds(val_preds, val_gts, names, args.target_recall, args.match_iou, args.tune_level,
-                                 args.max_threshold)
+                                 args.max_threshold, args.min_threshold)
     thr = np.array([thresholds[n]["threshold"] for n in names])
     test_gts = [gt_array(e) for e in meta[test_split]]
     test_preds = val_preds if test_split == "val" else predict_boxes(model, meta[test_split], args, tile, m2d)
@@ -1063,7 +1071,7 @@ def _evaluate_cls(model, meta, args, domain, test_split) -> dict:
     ni = names.index(normal)
     s_val, s_test = 1 - p_val[:, ni], 1 - p_test[:, ni]  # 異常分數 = 1 − P(正常)
     t, ok = threshold_for_recall(s_val[y_val != ni], args.target_recall) if (y_val != ni).any() else (0.5, None)
-    t = min(t, args.max_threshold)
+    t, ok = clamp_threshold(t, ok, args.min_threshold, args.max_threshold)
     b = binary_metrics(y_test != ni, s_test >= t)
     b["auc"] = roc_auc(y_test != ni, s_test)
     report["binary"] = b
@@ -1094,6 +1102,10 @@ MIN_RELIABLE_N = 30  # 樣本數低於此值的比率只供參考（例如 2 張
 def _small(n: int) -> str:
     """樣本太少時附加在指標名稱後的提示。"""
     return f"，⚠️ 少於 {MIN_RELIABLE_N} 張，僅供參考" if 0 < n < MIN_RELIABLE_N else ""
+
+
+def _floor_note(t: float, args) -> str:
+    return f"（停在下限 {args.min_threshold:g}）" if t <= args.min_threshold else ""
 
 
 def _fmt(v, pct=True) -> str:
@@ -1134,7 +1146,7 @@ def write_report(args, domain: Domain, report: dict, baseline: dict | None, gate
         if k in u:
             lines.append(f"| {label} | {_fmt(u[k], pct=False)} |")
     if report["task"] == "classify":
-        lines += _cls_report_lines(report)
+        lines += _cls_report_lines(report, args)
     else:
         lines += _det_report_lines(report, args, show_fp=fa_kind != "fp_per_image")
     if baseline is not None:
@@ -1175,7 +1187,7 @@ def _det_report_lines(report, args, show_fp: bool) -> list[str]:
     ]
     for n in report["names"]:
         t, pc = report["thresholds"][n], report["object"]["per_class"][n]
-        flag = " ⚠️ 達不到目標" if t["reachable"] is False else (" （val 無樣本，用預設）" if t["reachable"] is None else "")
+        flag = f" ⚠️ 達不到目標{_floor_note(t['threshold'], args)}" if t["reachable"] is False else (" （val 無樣本，用預設）" if t["reachable"] is None else "")
         lines.append(f"| {n} | {t['threshold']:.4f}{flag} | {t['n_val']} | {_fmt(t['val_recall'])} | {pc['n']} | {_fmt(pc['recall'])} |")
     if img["n_neg"] == 0:
         lines += ["", "> test 中沒有無缺陷 / 正常影像，無法計算特異度與過殺率；建議加入良品 / 正常影像。"]
@@ -1185,16 +1197,17 @@ def _det_report_lines(report, args, show_fp: bool) -> list[str]:
     return lines
 
 
-def _cls_report_lines(report) -> list[str]:
+def _cls_report_lines(report, args) -> list[str]:
     lines = [] if "top1" in report.get("ultralytics", {}) else [f"| 準確率 | {_fmt(report['accuracy'])} |"]
     b = report.get("binary")
     if b:
         t = report["thresholds"]
+        flag = f" ⚠️ 達不到目標召回率{_floor_note(t['abnormal_threshold'], args)}" if t["reachable"] is False else ""
         lines += [
             f"| 敏感度（異常判為異常{_small(b.get('n_pos', 0))}） | {_fmt(b['sensitivity'])} |",
             f"| 特異度（正常判為正常{_small(b.get('n_neg', 0))}） | {_fmt(b['specificity'])} |",
             f"| ROC AUC | {_fmt(b['auc'], pct=False)} |",
-            "", f"正常類別：`{t['normal_class']}`；異常門檻（1 − P(正常) ≥ t）：**{t['abnormal_threshold']:.4f}**",
+            "", f"正常類別：`{t['normal_class']}`；異常門檻（1 − P(正常) ≥ t）：**{t['abnormal_threshold']:.4f}**{flag}",
         ]
     names = report["names"]
     lines += ["", "## 每類結果（argmax）", "", "| 類別 | 樣本 | 召回率 | 精確率 |", "|---|---|---|---|"]
@@ -1352,6 +1365,8 @@ def add_common_args(p: argparse.ArgumentParser, *, target_recall: float, tile_de
     g.add_argument("--target-recall", type=float, default=target_recall, help="調門檻的目標召回率（漏檢率 = 1 − 這個值）")
     g.add_argument("--max-threshold", type=float, default=0.5,
                    help="門檻上限；避免小樣本的 val 調出過高門檻，讓系統比預設更不敏感")
+    g.add_argument("--min-threshold", type=float, default=0.1,
+                   help="門檻下限；達不到目標召回率時停在這裡並標示未達標，而不是一路降低讓誤報暴增")
     g.add_argument("--match-iou", type=float, default=0.3, help="預測框與標註框算「抓到」的 IoU 門檻")
     g.add_argument("--tune-level", choices=["object", "image"], default="object",
                    help="object：每個缺陷都要抓到；image：只看整張影像判 OK/NG")
@@ -1370,6 +1385,8 @@ def parse_args(parser: argparse.ArgumentParser, argv=None) -> argparse.Namespace
     unknown = [u for u in unknown if not (u.startswith("-f") or u.endswith(".json"))]  # Jupyter 會塞 -f kernel.json
     if unknown:
         print(f"⚠️ 忽略不認得的參數：{unknown}")
+    if not 0 <= args.min_threshold <= args.max_threshold <= 1:
+        raise SystemExit(f"門檻範圍不合理：--min-threshold {args.min_threshold} 必須介於 0 和 --max-threshold {args.max_threshold} 之間")
     args.extra = {}
     for kv in args.set:
         k, _, v = kv.partition("=")
