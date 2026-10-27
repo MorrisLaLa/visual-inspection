@@ -1088,6 +1088,14 @@ def compare(new: dict, old: dict, tol: float = 0.002) -> tuple[bool, list]:
 # ───────────────────────── 報告 ─────────────────────────
 
 
+MIN_RELIABLE_N = 30  # 樣本數低於此值的比率只供參考（例如 2 張算出的 50%）
+
+
+def _small(n: int) -> str:
+    """樣本太少時附加在指標名稱後的提示。"""
+    return f"，⚠️ 少於 {MIN_RELIABLE_N} 張，僅供參考" if 0 < n < MIN_RELIABLE_N else ""
+
+
 def _fmt(v, pct=True) -> str:
     if v is None:
         return "—"
@@ -1160,8 +1168,8 @@ def _det_report_lines(report, args, show_fp: bool) -> list[str]:
     if show_fp:
         lines.append(f"| 誤報數 / 每張影像 | {_fmt(report['object']['fp_per_image'], pct=False)} |")
     lines += [
-        f"| 影像層級敏感度（{img['n_pos']} 張有標註） | {_fmt(img['sensitivity'])} |",
-        f"| 影像層級特異度（{img['n_neg']} 張無標註） | {_fmt(img['specificity'])} |",
+        f"| 影像層級敏感度（{img['n_pos']} 張有標註{_small(img['n_pos'])}） | {_fmt(img['sensitivity'])} |",
+        f"| 影像層級特異度（{img['n_neg']} 張無標註{_small(img['n_neg'])}） | {_fmt(img['specificity'])} |",
         "", "## 每類門檻（val 調出）與 test 召回率", "",
         "| 類別 | 門檻 | val 樣本 | val 召回 | test 樣本 | test 召回 |", "|---|---|---|---|---|---|",
     ]
@@ -1171,6 +1179,9 @@ def _det_report_lines(report, args, show_fp: bool) -> list[str]:
         lines.append(f"| {n} | {t['threshold']:.4f}{flag} | {t['n_val']} | {_fmt(t['val_recall'])} | {pc['n']} | {_fmt(pc['recall'])} |")
     if img["n_neg"] == 0:
         lines += ["", "> test 中沒有無缺陷 / 正常影像，無法計算特異度與過殺率；建議加入良品 / 正常影像。"]
+    elif img["n_neg"] < MIN_RELIABLE_N:
+        lines += ["", f"> test 中只有 {img['n_neg']} 張無缺陷 / 正常影像，特異度與過殺率（偽陽性率）的統計誤差很大，"
+                  f"不能拿來判斷模型好壞；建議至少 {MIN_RELIABLE_N} 張，最好數百張。"]
     return lines
 
 
@@ -1180,8 +1191,8 @@ def _cls_report_lines(report) -> list[str]:
     if b:
         t = report["thresholds"]
         lines += [
-            f"| 敏感度（異常判為異常） | {_fmt(b['sensitivity'])} |",
-            f"| 特異度（正常判為正常） | {_fmt(b['specificity'])} |",
+            f"| 敏感度（異常判為異常{_small(b.get('n_pos', 0))}） | {_fmt(b['sensitivity'])} |",
+            f"| 特異度（正常判為正常{_small(b.get('n_neg', 0))}） | {_fmt(b['specificity'])} |",
             f"| ROC AUC | {_fmt(b['auc'], pct=False)} |",
             "", f"正常類別：`{t['normal_class']}`；異常門檻（1 − P(正常) ≥ t）：**{t['abnormal_threshold']:.4f}**",
         ]

@@ -1,5 +1,6 @@
 # Kaggle 上程式會自動安裝缺少的套件；本機執行時可用：pip install -r kaggle/requirements.txt
+# 注意：不要加 -U，否則會把 Kaggle 內建的 pandas 等套件升級到不相容的版本
 ultralytics>=8.4.0  # YOLO26；較舊版本會自動改用 YOLO11
 pydicom>=2.4        # 醫學 DICOM
-pandas              # WM-811K 晶圓圖
+pandas<3            # WM-811K 晶圓圖；鎖在 3 以下，避免與 Kaggle 內建 cudf 衝突
 pytest              # 單元測試

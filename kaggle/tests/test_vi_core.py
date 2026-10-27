@@ -218,3 +218,10 @@ def test_wafer_helpers_and_loader(tmp_path):
     ds = semiconductor_yolo.load_wm811k(args)
     assert ds.task == "classify" and ds.names == ["Loc", "none"] and len(ds.items) == 6
     assert args.imgsz == 32 and len(list(Path(args.default_unlabeled).glob("*.png"))) == 2
+
+
+def test_small_sample_warning():
+    from vi_core import _small, MIN_RELIABLE_N
+    assert _small(0) == ""
+    assert "僅供參考" in _small(2)
+    assert _small(MIN_RELIABLE_N) == ""
