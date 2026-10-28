@@ -1,0 +1,3 @@
+# 在 Mac / Windows / Linux 電腦上執行：pip install -r camera_test/requirements.txt
+ultralytics>=8.4.0   # YOLO26（附帶 opencv-python、numpy、pyyaml、matplotlib）
+pytest               # 單元測試

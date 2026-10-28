@@ -1,0 +1,4 @@
+video,speed_mm_s,n_parts,ng_parts
+run_slow.mov,100,20,"3,8,15"
+run_mid.mov,300,20,"3,8,15"
+run_fast.mov,,20,"3,8,15"

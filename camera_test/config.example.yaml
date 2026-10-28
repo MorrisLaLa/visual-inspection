@@ -1,0 +1,47 @@
+# 相機實測設定檔：複製一份（例如 config.yaml）再改。
+# 單位一律是 mm、mm/s、秒；填錯單位或互相矛盾時，程式會列出問題並停止，不會用錯的設定繼續跑。
+
+line:                        # ── 產線 ──
+  speed_mm_s: null           # 產線速度（mm/s）。還不知道就留 null：plan 會列出各速度的結果，test 會從影片量出速度
+                             #   換算：0.5 m/s = 500 mm/s；30 m/min = 500 mm/s
+  part_length_mm: 60         # 工件沿移動方向的長度
+  part_gap_mm: 100           # 前後兩個工件之間的空隙（邊到邊）；不知道就留 null
+
+camera:                      # ── 相機（換相機時只改這一段）──
+  type: iphone               # iphone / cctv（監視鏡頭）/ industrial（工業相機，全域快門）
+  source: 0                  # live 用的影像來源：0 或 1 = 電腦上的攝影機（Mac 上的 iPhone 接續互通相機）
+                             #   也可以是 rtsp://帳號:密碼@IP:554/... 或影片檔路徑
+  resolution: [1920, 1080]   # 錄影解析度 [寬, 高]；直式錄影要寫 [1080, 1920]
+  fps: 60                    # 每秒幀數
+  shutter: "1/2000"          # 快門；寫 "1/2000" 或 0.0005。iPhone 內建相機不能調，請用可手動設定快門的錄影 App
+  readout_ms: null           # 滾動快門讀出時間（ms）；null = 依 type 預設（iphone 20、cctv 30、industrial 0）
+  motion_axis: x             # 工件在畫面中怎麼移動：x = 左右、y = 上下
+  motion_direction: auto     # 移動方向：+ = 往右（或往下）、- = 往左（或往上）、auto = 自動判斷
+                             #   高速時（每幀移動超過工件間距一半）一定要填 + 或 -，auto 可能會把前後工件認錯
+  mm_per_px: null            # 每像素多少 mm：用 calib 指令放尺量（最準，會蓋過 fov_mm）
+  fov_mm: 150                # 畫面沿移動方向的實際長度（mm）；沒有 mm_per_px 時用它估算
+
+inspect:                     # ── 檢測 ──
+  model: best.pt             # Kaggle 訓練輸出的模型（detect 或 segment）
+  thresholds: thresholds.json  # Kaggle 輸出的每類門檻；null = 全部用 0.25
+  defect_classes: null       # 只把這些類別當缺陷，例如 [scratch, dent]；null = 模型的所有類別（part_class 除外）
+  imgsz: 640                 # 模型輸入尺寸（要和訓練時一致）
+  roi: null                  # 檢測區 [x1, y1, x2, y2]（像素）；null = 整個畫面。框小一點，缺陷在模型裡會比較大
+  min_defect_mm: 0.5         # 要抓到的最小缺陷尺寸
+  presence: background       # 怎麼知道有工件經過：
+                             #   background = 和空背景比對（素色輸送帶；影片開頭至少 1 秒畫面要是空的）
+                             #   model      = 模型裡有「整個工件」的類別（輸送帶有花紋時用）
+  part_class: part           # presence: model 時，代表整個工件的類別名稱
+  background_frames: 30      # 開頭用幾幀建立背景（這段時間畫面要是空的）
+  vote_min_frames: 2         # 至少幾幀看到缺陷才判 NG；看到 1 ~ (這個數 - 1) 幀 → 需人工確認（不會放行）
+  min_valid_frames: 3        # 每個工件至少要完整拍到幾幀；不夠 → 需人工確認（速度太快或 FPS 太低）
+  max_blur_px: 1.0           # 允許的動態模糊（像素）；規劃表用它算「需要的快門」
+  device: null               # 推論裝置：null = 自動、mps = Mac 的 GPU、cpu、0 = NVIDIA GPU
+
+criteria:                    # ── 通過標準（速度測試用）──
+  max_escape_rate: 0.0       # 漏檢率上限（NG 被判成 OK）
+  max_overkill_rate: 0.02    # 過殺率上限（OK 被判成 NG 或需人工確認）
+
+output:
+  dir: camtest_runs          # 輸出資料夾
+  save_ok_ratio: 0.05        # 良品抽樣存圖的比例（NG 和需人工確認一律存圖），給閉環重訓用
