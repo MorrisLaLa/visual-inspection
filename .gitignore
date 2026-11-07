@@ -218,3 +218,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# visual-inspection
+*.pt
+outputs/
+runs/
+datasets/
