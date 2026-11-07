@@ -1,0 +1,3 @@
+ultralytics>=8.4
+opencv-python>=4.8
+lap>=0.5.12  # used by --track; Ultralytics would otherwise try to install it on first use

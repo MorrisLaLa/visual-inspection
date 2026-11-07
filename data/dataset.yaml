@@ -1,0 +1,20 @@
+# Template for fine-tuning on your own labelled CCTV / phone images (YOLO format).
+# Copy this file to the root of your dataset folder:
+#
+#   my-dataset/
+#   ├── dataset.yaml
+#   ├── images/train/*.jpg    images/val/*.jpg
+#   └── labels/train/*.txt    labels/val/*.txt
+#
+# Each label file has one line per box: "<class id> <x center> <y center> <width> <height>",
+# with coordinates as fractions of the image size (0-1). Labelling tools such as
+# Label Studio, CVAT or Roboflow can export this format directly.
+#
+# With no "path:" key, Ultralytics treats the folder holding this file as the dataset
+# root, so the same file works on your computer and on Kaggle.
+train: images/train
+val: images/val
+names:
+  0: vehicle
+  1: person
+  2: animal
