@@ -26,6 +26,7 @@
 <body>
 <div class="wrap">
   <div class="card head"><img src="apple-touch-icon.png" alt=""><div><h1>PIG追蹤</h1><p class="muted">加到主畫面，之後點圖示就能直接開</p></div></div>
+  <div class="card" id="saved" hidden><b>✅ 已記住這支手機的登入</b><p class="muted" style="margin-top:6px;">還沒把 PIG 圖示加到主畫面的話，照下面步驟加；已經加過就直接按「直接進入」，以後從圖示打開都不用再登入。</p></div>
   <div class="card" id="ios">
     <ol>
       <li>點 Safari 下方的 <svg class="share" viewBox="0 0 24 24" fill="none" stroke="#0A7AFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>「分享」</li>
@@ -41,9 +42,20 @@
 </div>
 <script>
   var APP = 'https://script.google.com/macros/s/AKfycbwWpzup2-HRIr8NVp4MYt6OBmP7un0RHnnyWEXGmymFTGd-4E37fCqNTI9nH2O8QCOLjQ/exec';
-  document.getElementById('go').href = APP;
-  // 從主畫面圖示開啟（網址帶 ?app=1）就直接跳到 PIG 系統
-  if (/[?&]app=1/.test(location.search)) { location.replace(APP); }
+  var KEY = 'pigLogin';
+  function get() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } }
+  // PIG 系統按「記住這支手機」會帶 #save=登入憑證 過來；#forget 是登出
+  var h = location.hash || '';
+  if (h.indexOf('#save=') === 0) {
+    try { localStorage.setItem(KEY, decodeURIComponent(h.slice(6))); } catch (e) {}
+    document.getElementById('saved').hidden = false;
+  } else if (h === '#forget') {
+    try { localStorage.removeItem(KEY); } catch (e) {}
+  }
+  function appUrl() { var t = get(); return APP + '?via=home' + (t ? '&t=' + encodeURIComponent(t) : ''); }
+  document.getElementById('go').href = appUrl();
+  // 從主畫面圖示開啟（網址帶 ?app=1）就直接跳到 PIG 系統，並帶上記住的登入
+  if (/[?&]app=1/.test(location.search) && h.indexOf('#save=') !== 0 && h !== '#forget') { location.replace(appUrl()); }
   else {
     // 加入主畫面時會存下目前網址，先換成 ?app=1，之後點圖示就直接跳轉
     try { history.replaceState(null, '', location.pathname + '?app=1'); } catch (e) {}
