@@ -52,10 +52,20 @@
   } else if (h === '#forget') {
     try { localStorage.removeItem(KEY); } catch (e) {}
   }
+  // 存的若是指揮官登入（Email 帳號），搬到指揮官專用頁，這一頁只留組員登入
+  function isCmd(t) { try { var p = t.split('.')[0].replace(/-/g, '+').replace(/_/g, '/'); return atob(p).split('|')[0].indexOf('@') > -1; } catch (e) { return false; } }
+  var moved = false;
+  (function () {
+    var t = get(); if (!t || !isCmd(t)) return;
+    moved = true;
+    try { localStorage.setItem('pigCmdLogin', t); localStorage.removeItem(KEY); } catch (e) {}
+    location.replace('cmd/' + (/[?&]app=1/.test(location.search) ? '?app=1' : ''));
+  })();
   function appUrl() { var t = get(); return APP + '?via=home' + (t ? '&t=' + encodeURIComponent(t) : ''); }
   document.getElementById('go').href = appUrl();
   // 從主畫面圖示開啟（網址帶 ?app=1）就直接跳到 PIG 系統，並帶上記住的登入
-  if (/[?&]app=1/.test(location.search) && h.indexOf('#save=') !== 0 && h !== '#forget') { location.replace(appUrl()); }
+  if (moved) { /* 正在轉到指揮官頁 */ }
+  else if (/[?&]app=1/.test(location.search) && h.indexOf('#save=') !== 0 && h !== '#forget') { location.replace(appUrl()); }
   else {
     // 加入主畫面時會存下目前網址，先換成 ?app=1，之後點圖示就直接跳轉
     try { history.replaceState(null, '', location.pathname + '?app=1'); } catch (e) {}

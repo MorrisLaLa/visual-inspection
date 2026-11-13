@@ -37,3 +37,9 @@ Apps Script 網頁（script.google.com/.../exec）在 Google 的網域底下，*
 ## 使用者偏好
 - 溝通用繁體中文；要直接動手、少問問題、少丟長步驟。
 - **程式碼（Code.gs / Index.html 等）不要放 GitHub**，用私人一鍵複製頁交付；只有不含程式的靜態頁（如圖示頁）經同意後可放。
+
+### 指揮官／組員入口分開（V12.1 起）
+- 組員入口：`…/exec`、圖示頁 `pig/`（帶 `?t=` 記住登入，只收組員憑證）。
+- 指揮官入口：`…/exec?cmd=1`、圖示頁 `pig/cmd/`（先用 `?fn=ticket` 換 5 分鐘通行碼，再帶 `&k=` 進入；網址列不會有登入憑證）。
+- 舊圖示（`pig/?app=1`）若存的是指揮官登入，會自動搬到 `pig/cmd/`。
+- 登入憑證含中文名字：Apps Script 的 base64／HMAC 一定要先轉 UTF-8 位元組（`Utilities.newBlob(s).getBytes()`），否則中文變「?」→ 組員登入後馬上被踢回登入畫面。
