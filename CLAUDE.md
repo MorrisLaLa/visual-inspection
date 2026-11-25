@@ -42,6 +42,11 @@ Apps Script 網頁（script.google.com/.../exec）在 Google 的網域底下，*
 - 條碼／QR 由系統自己畫（`qrPngBytes_`、`barcodePngBytes_`，Code.gs 內建，已用 zxing 解碼驗證），外部網站只當備援。
 - **試算表轉 PDF 的字型**：預設 Arial 小字（8～9pt）時「中文接英數字」會疊字（例：桃園8吋、編號MEF），一律用 `Noto Sans TC`（數字欄用 Roboto Mono）。
   彩色 emoji（✅❌🤖…）PDF 印不出來會變空白，改用 ✔ ✗ ⚠ 等一般符號。排版有疑慮時，用 Sheets API 建暫存表 → Drive 匯出 PDF 實際看過再交付。
+  - Apps Script `setRowHeight` 不是強制高度：**會換行的格子放不下時，轉 PDF 列會自動長高**（含合併格）→ 說明列給一行高就好，不要猜行數（猜大會空一大塊）。
+    但 Sheets API 的 pixelSize 是強制高度（用 API 做測試表時會被切，不代表實際會切）。
+  - 上方資訊格要「各欄寬度平均」，不要跟表格欄位隨便切（使用者會在意左邊擠、右邊空）；時間格式要一致（作業過程一律 時:分:秒）。
+  - **改版面先給使用者看樣式再部署**：scratchpad 的 `sheetmodel.js`＋`rec_preview_run.js`＋`topdf.js` 直接跑 Code.gs 產生紀錄，
+    用同字型（@fontsource Noto Sans TC／Roboto Mono）照 A4 排出 PDF，已跟真實 PDF 對照過一致。
 
 ### AGM BOX 編號（V17.27 起，歸檔後在報告「📦 AGM BOX 編號」填）
 - 表「AGM BOX紀錄」：歸檔批次｜管線｜類型（組／換／站／回收）｜對象｜站點（存當時分組快照）｜BOX 編號｜起站｜更新者｜更新時間。
