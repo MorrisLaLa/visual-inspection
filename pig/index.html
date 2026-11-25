@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PIG追蹤</title>
+<meta name="apple-mobile-web-app-title" content="PIG追蹤">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-512.png">
+<style>
+  :root { --bg: #EDF1F5; --card: #fff; --fg: #142333; --muted: #5E6E7E; --line: #DCE3EA; --blue: #0A5FA8; --red: #C00000; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0B1218; --card: #131D26; --fg: #E3EAF1; --muted: #8E9DAC; --line: #24323E; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: -apple-system, "PingFang TC", "Noto Sans TC", sans-serif; }
+  .wrap { max-width: 420px; margin: 0 auto; padding: 28px 16px; display: flex; flex-direction: column; gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px; }
+  .head { display: flex; align-items: center; gap: 14px; }
+  .head img { width: 64px; height: 64px; border-radius: 15px; border: 1px solid var(--line); }
+  h1 { margin: 0; font-size: 22px; }
+  ol { margin: 0; padding-left: 22px; line-height: 1.9; font-size: 17px; }
+  .muted { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 0; }
+  .go { display: block; text-align: center; background: var(--blue); color: #fff; text-decoration: none; font-weight: 700; font-size: 17px; padding: 14px; border-radius: 12px; }
+  .share { display: inline-block; vertical-align: -4px; width: 20px; height: 20px; }
+  #ios[hidden], #other[hidden] { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card head"><img src="apple-touch-icon.png" alt=""><div><h1>PIG追蹤</h1><p class="muted">加到主畫面，之後點圖示就能直接開</p></div></div>
+  <div class="card" id="saved" hidden><b>✅ 已記住這支手機的登入</b><p class="muted" style="margin-top:6px;">還沒把 PIG 圖示加到主畫面的話，照下面步驟加；已經加過就直接按「直接進入」，以後從圖示打開都不用再登入。</p></div>
+  <div class="card" id="ios">
+    <ol>
+      <li>點 Safari 下方的 <svg class="share" viewBox="0 0 24 24" fill="none" stroke="#0A7AFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>「分享」</li>
+      <li>點「<b>加入主畫面</b>」</li>
+      <li>按「<b>新增</b>」</li>
+    </ol>
+    <p class="muted" style="margin-top:10px;">在 LINE 裡看到這頁的話，先點右下角選單 →「在 Safari 中開啟」。</p>
+  </div>
+  <div class="card" id="other" hidden>
+    <ol><li>點 Chrome 右上角「⋮」</li><li>點「<b>加到主畫面</b>」</li><li>按「<b>新增</b>」</li></ol>
+  </div>
+  <a class="go" id="go" href="#">直接進入 PIG 追蹤 →</a>
+</div>
+<script>
+  var APP = 'https://script.google.com/macros/s/AKfycbwWpzup2-HRIr8NVp4MYt6OBmP7un0RHnnyWEXGmymFTGd-4E37fCqNTI9nH2O8QCOLjQ/exec';
+  var KEY = 'pigLogin';
+  function get() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } }
+  // PIG 系統按「記住這支手機」會帶 #save=登入憑證 過來；#forget 是登出
+  var h = location.hash || '';
+  if (h.indexOf('#save=') === 0) {
+    try { localStorage.setItem(KEY, decodeURIComponent(h.slice(6))); } catch (e) {}
+    document.getElementById('saved').hidden = false;
+  } else if (h === '#forget') {
+    try { localStorage.removeItem(KEY); } catch (e) {}
+  }
+  // 存的若是指揮官登入（Email 帳號），搬到指揮官專用頁，這一頁只留組員登入
+  function isCmd(t) { try { var p = t.split('.')[0].replace(/-/g, '+').replace(/_/g, '/'); return atob(p).split('|')[0].indexOf('@') > -1; } catch (e) { return false; } }
+  var moved = false;
+  (function () {
+    var t = get(); if (!t || !isCmd(t)) return;
+    moved = true;
+    try { localStorage.setItem('pigCmdLogin', t); localStorage.removeItem(KEY); } catch (e) {}
+    location.replace('cmd/' + (/[?&]app=1/.test(location.search) ? '?app=1' : ''));
+  })();
+  function appUrl() { var t = get(); return APP + '?via=home' + (t ? '&t=' + encodeURIComponent(t) : ''); }
+  document.getElementById('go').href = appUrl();
+  // 從主畫面圖示開啟（網址帶 ?app=1）就直接跳到 PIG 系統，並帶上記住的登入
+  if (moved) { /* 正在轉到指揮官頁 */ }
+  else if (/[?&]app=1/.test(location.search) && h.indexOf('#save=') !== 0 && h !== '#forget') { location.replace(appUrl()); }
+  else {
+    // 加入主畫面時會存下目前網址，先換成 ?app=1，之後點圖示就直接跳轉
+    try { history.replaceState(null, '', location.pathname + '?app=1'); } catch (e) {}
+    if (!/iPhone|iPad|iPod/i.test(navigator.userAgent)) { document.getElementById('ios').hidden = true; document.getElementById('other').hidden = false; }
+  }
+</script>
+</body>
+</html>
