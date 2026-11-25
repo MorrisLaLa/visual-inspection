@@ -40,6 +40,8 @@ Apps Script 網頁（script.google.com/.../exec）在 Google 的網域底下，*
 - **系統產生的檔案（PDF 等）不要重複**：以「跟系統目前資料相符」為準，不是看哪份最新（使用者明講「最新的不一定代表是正確的」）。
   資料沒變再按 → 沿用同一份（檔案說明記指紋 `outputFp_`／`findSameOutput_`）；資料有更正 → 產生新的，舊的搬同資料夾「舊版」不刪（`keepLatestOutput_`）；加 ScriptLock 防同時按兩次。新功能也照這個模式（V17.24 起）。
 - 條碼／QR 由系統自己畫（`qrPngBytes_`、`barcodePngBytes_`，Code.gs 內建，已用 zxing 解碼驗證），外部網站只當備援。
+- **試算表轉 PDF 的字型**：預設 Arial 小字（8～9pt）時「中文接英數字」會疊字（例：桃園8吋、編號MEF），一律用 `Noto Sans TC`（數字欄用 Roboto Mono）。
+  彩色 emoji（✅❌🤖…）PDF 印不出來會變空白，改用 ✔ ✗ ⚠ 等一般符號。排版有疑慮時，用 Sheets API 建暫存表 → Drive 匯出 PDF 實際看過再交付。
 
 ### 指揮官／組員入口分開（V12.1 起）
 - 組員入口：`…/exec`、圖示頁 `pig/`（帶 `?t=` 記住登入，只收組員憑證）。
